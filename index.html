@@ -93,6 +93,18 @@
     .demo-btn { margin-bottom: 16px; padding: 10px 20px; font: inherit; font-weight: 700; color: #fff; background: #0e7c86; border: 0; border-radius: 8px; cursor: pointer; }
     .demo-btn:hover { background: #0b666e; }
     .demo-wrap iframe { display: block; width: 100%; height: 80vh; min-height: 560px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; }
+    .img-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .img-form input { flex: 1 1 200px; padding: 10px 12px; font: inherit; border: 1px solid #d1d5db; border-radius: 8px; }
+    .img-form button { padding: 10px 20px; font: inherit; font-weight: 700; color: #fff; background: #0e7c86; border: 0; border-radius: 8px; cursor: pointer; }
+    .img-form button:disabled { opacity: .5; cursor: default; }
+    .img-status { margin-bottom: 12px; font-size: .92rem; color: #6b7280; min-height: 1.4em; }
+    .img-status.err { color: #b91c1c; }
+    .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .img-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0, 0, 0, .08); display: flex; flex-direction: column; }
+    .img-card img { width: 100%; height: 160px; object-fit: cover; display: block; background: #e5e7eb; }
+    .img-card .body { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: .85rem; }
+    .img-card input { width: 100%; padding: 6px 8px; font-size: .78rem; border: 1px solid #d1d5db; border-radius: 6px; }
+    .img-card button { padding: 6px 10px; font: inherit; font-size: .85rem; color: #0e7c86; background: #fff; border: 1px solid #0e7c86; border-radius: 6px; cursor: pointer; }
     footer { text-align: center; padding: 24px; color: #6b7280; font-size: .9rem; }
 
     /* ---------- 모바일: 햄버거 메뉴 ---------- */
@@ -108,7 +120,7 @@
         overflow: hidden;
         transition: max-height .3s ease;
       }
-      nav.open { max-height: 420px; }
+      nav.open { max-height: 480px; }
       nav ul { flex-direction: column; padding: 8px 16px 16px; }
       nav a { padding: 12px 16px; }
     }
@@ -131,6 +143,7 @@
           <li><a href="#bus" data-page="bus">버스</a></li>
           <li><a href="#sights" data-page="sights">관광지</a></li>
           <li><a href="#array" data-page="array">배열 학습</a></li>
+          <li><a href="#images" data-page="images">이미지 가져오기</a></li>
         </ul>
       </nav>
     </div>
@@ -275,6 +288,19 @@
         <iframe id="demoFrame" title="장바구니와 반복문 애니메이션"></iframe>
       </div>
     </section>
+
+    <section class="page" id="images">
+      <h1>🖼️ 이미지 가져오기</h1>
+      <p>Pixabay에서 검색어에 맞는 이미지를 불러와 화면에 보여주고, 이미지 주소(URL)를 복사할 수 있습니다.</p>
+      <form class="img-form" id="imgForm">
+        <input type="password" id="pixKey" placeholder="Pixabay API Key" autocomplete="off" aria-label="Pixabay API Key">
+        <input type="text" id="pixQuery" placeholder="검색어 (예: 제주도 바다)" value="제주도" aria-label="검색어">
+        <button type="submit" id="pixGo">이미지 가져오기</button>
+      </form>
+      <div class="img-status" id="pixStatus" role="status"></div>
+      <div class="img-grid" id="pixGrid"></div>
+      <p class="note">API Key는 코드에 저장하지 않고, 입력한 값만 이 브라우저(localStorage)에 기억합니다. 이미지 제공: <a href="https://pixabay.com" target="_blank" rel="noopener">Pixabay</a></p>
+    </section>
   </main>
 
   <footer>© 제주 여행 안내</footer>
@@ -315,6 +341,83 @@
       if (open && !demoFrame.getAttribute('src')) demoFrame.setAttribute('src', 'shopping-loop-animation.html');
       demoBtn.textContent = open ? '✕ 애니메이션 닫기' : '▶ 장바구니 애니메이션 보기';
       demoBtn.setAttribute('aria-expanded', String(open));
+    });
+
+    // ---------- Pixabay 이미지 가져오기 ----------
+    const pixForm = document.getElementById('imgForm');
+    const pixKey = document.getElementById('pixKey');
+    const pixQuery = document.getElementById('pixQuery');
+    const pixGo = document.getElementById('pixGo');
+    const pixStatus = document.getElementById('pixStatus');
+    const pixGrid = document.getElementById('pixGrid');
+    try { pixKey.value = localStorage.getItem('pixabayKey') || ''; } catch (e) {}
+
+    function setPixStatus(msg, isErr) {
+      pixStatus.textContent = msg;
+      pixStatus.className = 'img-status' + (isErr ? ' err' : '');
+    }
+
+    function makePixCard(hit) {
+      const card = document.createElement('div');
+      card.className = 'img-card';
+      const img = document.createElement('img');
+      img.src = hit.webformatURL;
+      img.alt = hit.tags;
+      img.loading = 'lazy';
+      const body = document.createElement('div');
+      body.className = 'body';
+      const tags = document.createElement('div');
+      tags.textContent = hit.tags;
+      const addr = document.createElement('input');
+      addr.type = 'text';
+      addr.readOnly = true;
+      addr.value = hit.webformatURL;
+      addr.addEventListener('focus', () => addr.select());
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = '주소 복사';
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(hit.webformatURL);
+          btn.textContent = '복사됨 ✔';
+        } catch (e) {
+          addr.select();
+          btn.textContent = '직접 복사(Ctrl+C)';
+        }
+        setTimeout(() => { btn.textContent = '주소 복사'; }, 1500);
+      });
+      body.append(tags, addr, btn);
+      card.append(img, body);
+      return card;
+    }
+
+    pixForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const key = pixKey.value.trim();
+      const q = pixQuery.value.trim();
+      if (!key) return setPixStatus('API Key를 입력하세요.', true);
+      if (!q) return setPixStatus('검색어를 입력하세요.', true);
+      pixGo.disabled = true;
+      setPixStatus('이미지를 불러오는 중...');
+      pixGrid.textContent = '';
+      try {
+        const url = 'https://pixabay.com/api/?key=' + encodeURIComponent(key) + '&q=' + encodeURIComponent(q) + '&image_type=photo&per_page=12&safesearch=true&lang=ko';
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(res.status === 400 ? 'API Key 또는 요청 값이 올바르지 않습니다. (400)'
+            : res.status === 429 ? '요청이 너무 많습니다. 잠시 후 다시 시도하세요. (429)'
+            : '불러오기에 실패했습니다. (' + res.status + ')');
+        }
+        const data = await res.json();
+        if (!data.hits.length) return setPixStatus('"' + q + '" 검색 결과가 없습니다.');
+        try { localStorage.setItem('pixabayKey', key); } catch (e) {}
+        data.hits.forEach(hit => pixGrid.appendChild(makePixCard(hit)));
+        setPixStatus('총 ' + data.totalHits + '개 중 ' + data.hits.length + '개를 표시합니다.');
+      } catch (err) {
+        setPixStatus(err instanceof TypeError ? '네트워크 오류로 불러오지 못했습니다.' : err.message, true);
+      } finally {
+        pixGo.disabled = false;
+      }
     });
 
     window.addEventListener('hashchange', show);

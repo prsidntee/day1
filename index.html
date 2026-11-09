@@ -120,7 +120,7 @@
         overflow: hidden;
         transition: max-height .3s ease;
       }
-      nav.open { max-height: 480px; }
+      nav.open { max-height: 540px; }
       nav ul { flex-direction: column; padding: 8px 16px 16px; }
       nav a { padding: 12px 16px; }
     }
@@ -144,6 +144,7 @@
           <li><a href="#sights" data-page="sights">관광지</a></li>
           <li><a href="#array" data-page="array">배열 학습</a></li>
           <li><a href="#images" data-page="images">이미지 가져오기</a></li>
+          <li><a href="#ocean" data-page="ocean">3D 바다</a></li>
         </ul>
       </nav>
     </div>
@@ -289,6 +290,15 @@
       </div>
     </section>
 
+    <section class="page" id="ocean">
+      <h1>🌊 제주 3D 바다와 태양</h1>
+      <p>물결치는 바다 위로 태양이 떠서 이동하고, 바다에 햇빛이 반짝이는 모습을 3D로 볼 수 있습니다. (실제 DEM이 아닌 가상 제주섬 모형)</p>
+      <button type="button" class="demo-btn" id="oceanBtn" aria-expanded="false" aria-controls="oceanWrap">▶ 3D 바다 보기</button>
+      <div class="demo-wrap" id="oceanWrap" hidden>
+        <iframe id="oceanFrame" title="제주 3D 바다와 태양" allow="fullscreen"></iframe>
+      </div>
+    </section>
+
     <section class="page" id="images">
       <h1>🖼️ 이미지 가져오기</h1>
       <p>Pixabay에서 검색어에 맞는 이미지를 불러와 화면에 보여주고, 이미지 주소(URL)를 복사할 수 있습니다.</p>
@@ -330,6 +340,17 @@
       const open = nav.classList.toggle('open');
       burger.classList.toggle('open', open);
       burger.setAttribute('aria-expanded', open);
+    });
+
+    const oceanBtn = document.getElementById('oceanBtn');
+    const oceanWrap = document.getElementById('oceanWrap');
+    const oceanFrame = document.getElementById('oceanFrame');
+    oceanBtn.addEventListener('click', () => {
+      const open = oceanWrap.hidden;
+      oceanWrap.hidden = !open;
+      if (open && !oceanFrame.getAttribute('src')) oceanFrame.setAttribute('src', 'jeju-ocean.html');
+      oceanBtn.textContent = open ? '✕ 3D 바다 닫기' : '▶ 3D 바다 보기';
+      oceanBtn.setAttribute('aria-expanded', String(open));
     });
 
     const demoBtn = document.getElementById('demoBtn');

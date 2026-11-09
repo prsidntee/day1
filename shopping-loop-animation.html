@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>장바구니와 반복문 애니메이션</title>
+<style>
+  :root { --bg:#f5f7fa; --card:#fff; --text:#1f2937; --muted:#6b7280; --accent:#0e7c86; --line:#e5e7eb; --code:#111827; --codetext:#d1d5db; --cur:#f59e0b; --done:#d1fae5; --donetext:#065f46; --soft:#eef6f7; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --accent:#2dd4bf; --line:#334155; --code:#020617; --done:#064e3b; --donetext:#a7f3d0; --soft:#16303a; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+  main { max-width:1180px; margin:0 auto; padding:18px 14px 60px; }
+  h1 { font-size:1.4rem; margin:0 0 4px; }
+  .lead { color:var(--muted); margin:0 0 12px; font-size:.95rem; }
+  .controls { position:sticky; top:0; z-index:5; background:var(--bg); padding:8px 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid var(--line); margin-bottom:14px; }
+  button { font:inherit; border:0; border-radius:8px; padding:8px 14px; cursor:pointer; background:var(--accent); color:#fff; font-weight:700; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  button:disabled { opacity:.4; cursor:default; }
+  label { color:var(--muted); font-size:.9rem; display:flex; align-items:center; gap:6px; }
+  .grid { display:grid; grid-template-columns:1fr 1.15fr; gap:14px; align-items:start; }
+  @media (max-width:860px) { .grid { grid-template-columns:1fr; } }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
+  .panel > h2 { font-size:1rem; margin:0 0 10px; color:var(--accent); }
+  .sec { font-size:.85rem; color:var(--muted); margin:12px 0 6px; font-weight:700; }
+
+  /* ----- 왼쪽: 쇼핑몰 ----- */
+  .shelf { border:2px dashed var(--line); border-radius:12px; padding:12px; text-align:center; min-height:150px; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:all .25s; background:var(--soft); }
+  .shelf .em { font-size:2.6rem; line-height:1.2; }
+  .shelf .nm { font-weight:700; font-size:1.1rem; }
+  .shelf .kv { font-family:Consolas,monospace; font-size:.95rem; }
+  .shelf .calc { font-family:Consolas,monospace; font-weight:700; font-size:1.15rem; color:var(--accent); min-height:1.7em; }
+  .shelf.pick { border-color:var(--cur); border-style:solid; animation:lift .35s; }
+  .shelf.mul { border-color:var(--accent); border-style:solid; }
+  .shelf.add { border-color:#10b981; border-style:solid; background:var(--done); color:var(--donetext); animation:drop .45s; }
+  @keyframes lift { from { transform:translateY(14px); opacity:.2; } to { transform:none; opacity:1; } }
+  @keyframes drop { 0% { transform:scale(1); } 40% { transform:translateY(24px) scale(.9); } 100% { transform:none; } }
+  .cartbox { border:2px solid var(--line); border-radius:12px; overflow:hidden; }
+  .carthead { display:flex; justify-content:space-between; align-items:center; background:var(--soft); padding:8px 12px; font-weight:700; }
+  .carthead .ico { display:inline-block; }
+  .carthead .ico.bump { animation:bump .4s; }
+  @keyframes bump { 50% { transform:scale(1.5) rotate(-10deg); } }
+  .cartlist { max-height:300px; overflow-y:auto; padding:4px 0; }
+  .row { display:grid; grid-template-columns:28px 1fr auto; gap:6px; padding:4px 12px; font-size:.9rem; border-bottom:1px solid var(--line); }
+  .row .n { color:var(--muted); font-family:Consolas,monospace; font-size:.8rem; padding-top:2px; }
+  .row .c { font-family:Consolas,monospace; text-align:right; }
+  .row.fresh { animation:slide .45s; background:var(--done); }
+  @keyframes slide { from { transform:translateX(-30px); opacity:0; } to { transform:none; opacity:1; } }
+  .empty { color:var(--muted); text-align:center; padding:18px; font-size:.9rem; }
+  .cartfoot { display:flex; justify-content:space-between; align-items:baseline; padding:10px 12px; background:var(--soft); }
+  .cartfoot .tot { font-family:Consolas,monospace; font-size:1.7rem; font-weight:700; color:var(--accent); }
+
+  /* ----- 오른쪽: 로직 ----- */
+  .code { background:var(--code); border-radius:8px; padding:8px 0; font-family:Consolas,monospace; font-size:.84rem; overflow-x:auto; }
+  .ln { display:flex; padding:2px 12px; color:var(--codetext); white-space:pre; border-left:4px solid transparent; }
+  .ln .no { width:26px; color:#6b7280; flex:none; }
+  .ln.on { background:rgba(14,124,134,.4); border-left-color:var(--cur); color:#fff; }
+  .cm { color:#6b7280; }
+  .flow { display:flex; align-items:stretch; gap:6px; flex-wrap:wrap; }
+  .flow .box { flex:1 1 110px; border:2px solid var(--line); border-radius:10px; padding:6px 8px; text-align:center; font-size:.85rem; transition:all .2s; background:var(--bg); }
+  .flow .box b { display:block; }
+  .flow .box.on { border-color:var(--cur); background:var(--cur); color:#111; transform:translateY(-3px); }
+  .flow .arrow { align-self:center; color:var(--muted); }
+  .loopnote { font-size:.82rem; color:var(--muted); margin-top:6px; }
+  .counter { display:flex; justify-content:space-between; font-family:Consolas,monospace; font-weight:700; }
+  .bar { height:10px; background:var(--line); border-radius:5px; overflow:hidden; margin:4px 0 8px; }
+  .bar i { display:block; height:100%; width:0; background:var(--accent); transition:width .15s; }
+  .tiles { display:grid; grid-template-columns:repeat(10,1fr); gap:3px; }
+  .tile { text-align:center; font-size:.66rem; padding:3px 0; border-radius:4px; background:var(--line); color:var(--text); transition:all .15s; }
+  .tile.done { background:var(--accent); color:#fff; }
+  .tile.cur { background:var(--cur); color:#111; transform:scale(1.3); font-weight:700; }
+  .vars { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .var { border:1px solid var(--line); border-radius:8px; padding:6px 10px; background:var(--bg); }
+  .var small { color:var(--muted); display:block; font-family:Consolas,monospace; font-size:.78rem; }
+  .var b { font-family:Consolas,monospace; font-size:1rem; word-break:break-all; }
+  .var.big { grid-column:1 / -1; }
+  .var.big b { font-size:1.8rem; color:var(--accent); }
+  .var.flash { animation:flash .5s; }
+  @keyframes flash { 0% { background:var(--cur); } 100% { background:var(--bg); } }
+  .say { background:var(--soft); border:2px solid var(--accent); border-radius:10px; padding:10px 12px; min-height:92px; font-size:1rem; }
+  .say small { display:block; color:var(--accent); font-weight:700; margin-bottom:2px; }
+  .console { background:#0b1220; color:#a7f3d0; border-radius:8px; padding:8px 12px; font-family:Consolas,monospace; min-height:44px; font-size:1rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🛒 장바구니 50개로 배우는 배열과 반복문</h1>
+  <p class="lead">왼쪽은 쇼핑몰에서 상품을 담는 화면, 오른쪽은 그때 프로그램 속에서 일어나는 일입니다. 두 화면이 같은 순서로 움직입니다.</p>
+
+  <div class="controls">
+    <button id="play">▶ 자동 재생</button>
+    <button id="next" class="ghost">한 단계</button>
+    <button id="item" class="ghost">한 상품씩</button>
+    <button id="end" class="ghost">끝까지</button>
+    <button id="reset" class="ghost">처음부터</button>
+    <label>속도 <input type="range" id="speed" min="1" max="12" value="4"></label>
+  </div>
+
+  <div class="grid">
+    <!-- 왼쪽 -->
+    <section>
+      <div class="panel">
+        <h2>🛍️ 쇼핑몰 화면 (장바구니에 담기)</h2>
+        <div class="sec">지금 고른 상품</div>
+        <div class="shelf" id="shelf"></div>
+        <div class="sec">🛒 내 장바구니</div>
+        <div class="cartbox">
+          <div class="carthead"><span><span class="ico" id="ico">🛒</span> 담긴 상품</span><span id="cnt">0 / 50</span></div>
+          <div class="cartlist" id="list"></div>
+          <div class="cartfoot"><span>총 구매가격</span><span class="tot" id="tot">0원</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 오른쪽 -->
+    <section>
+      <div class="panel">
+        <h2>🧠 프로그램 로직</h2>
+        <div class="say" id="say"></div>
+        <div class="sec">코드</div>
+        <div class="code" id="code"></div>
+        <div class="sec">반복문이 한 칸마다 하는 일 (50번 되풀이)</div>
+        <div class="flow" id="flow">
+          <div class="box" id="b1"><b>① 꺼내기</b>data에서 한 칸을 item에 넣는다</div>
+          <div class="arrow">→</div>
+          <div class="box" id="b2"><b>② 곱하기</b>가격 × 개수</div>
+          <div class="arrow">→</div>
+          <div class="box" id="b3"><b>③ 더하기</b>sum에 더한다</div>
+        </div>
+        <div class="loopnote">③이 끝나면 다음 칸이 남아 있는지 보고, 남았으면 ①로 되돌아갑니다. 50칸이 모두 끝나면 반복문을 빠져나갑니다.</div>
+      </div>
+      <div class="panel">
+        <h2>📦 배열 data의 칸 50개</h2>
+        <div class="counter"><span id="kc">0번째 / 50</span><span id="pc">0%</span></div>
+        <div class="bar"><i id="bar"></i></div>
+        <div class="tiles" id="tiles"></div>
+      </div>
+      <div class="panel">
+        <h2>🔢 변수 (값이 바뀌는 상자)</h2>
+        <div class="vars" id="vars"></div>
+        <div class="sec">출력 (console.log)</div>
+        <div class="console" id="console">&nbsp;</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+// [이름, 이모지, 개당 가격(원), 개수]
+const raw = [
+  ["사과","🍎",100,5],["배","🍐",1000,2],["귤","🍊",300,10],["바나나","🍌",500,4],["포도","🍇",4000,1],
+  ["딸기","🍓",6000,1],["수박","🍉",15000,1],["참외","🍈",1500,3],["복숭아","🍑",1200,6],["감","🍊",800,5],
+  ["키위","🥝",800,5],["망고","🥭",3000,2],["레몬","🍋",700,4],["체리","🍒",9000,1],["자두","🍑",500,8],
+  ["파인애플","🍍",5000,1],["멜론","🍈",8000,1],["석류","🍎",3500,2],["토마토","🍅",600,6],["오이","🥒",700,3],
+  ["당근","🥕",400,5],["양파","🧅",300,6],["감자","🥔",500,7],["고구마","🍠",900,4],["배추","🥬",3500,1],
+  ["무","🥔",2000,1],["시금치","🥬",2500,2],["상추","🥬",2000,2],["깻잎","🌿",1500,2],["대파","🌱",1800,2],
+  ["마늘","🧄",6000,1],["생강","🌿",3000,1],["고추","🌶️",1000,3],["호박","🎃",2000,2],["가지","🍆",600,4],
+  ["브로콜리","🥦",2500,2],["버섯","🍄",1500,3],["옥수수","🌽",1000,5],["우유","🥛",2800,2],["계란","🥚",400,10],
+  ["두부","⬜",1800,2],["콩나물","🌱",1000,2],["김","🍙",3000,2],["쌀","🍚",25000,1],["빵","🍞",3500,2],
+  ["치즈","🧀",4500,2],["요거트","🥛",1200,6],["햄","🥓",5000,1],["라면","🍜",1000,5],["생선","🐟",7000,1]
+];
+const data = raw.map(([name, emoji, price, amount]) => ({ name, emoji, price, amount }));
+const N = data.length;
+const fmt = n => n.toLocaleString("ko-KR");
+
+const lines = [
+  "let data = [",
+  '  { name: "사과", price: 100, amount: 5 },',
+  '  { name: "배", price: 1000, amount: 2 },',
+  "  // ... 이런 상품이 모두 50개 ...",
+  "]",
+  "let sum = 0",
+  "for (const item of data) {   // 50칸을 한 칸씩",
+  "  sum += item.price * item.amount",
+  "}",
+  "console.log(sum)"
+];
+
+// 실행 과정을 미리 계산해 둡니다.
+function buildTrace() {
+  const t = [], out = [];
+  let sum = null, sub = null, itemStr = null, added = 0, k = -1;
+  const push = (hl, phase, say, tag) => t.push({ hl, phase, say, tag, k, sum, sub, itemStr, added, out: out.slice() });
+
+  push([0,1,2,3,4], "none", `data는 상품 50개가 들어 있는 배열(상자 50칸)입니다. 칸마다 상품 하나의 이름, 가격, 개수가 적혀 있고 번호는 0번부터 49번까지입니다.`, "만들기");
+  sum = 0;
+  push([5], "none", "총 구매가격을 모을 변수 sum을 0으로 만듭니다. 아직 아무것도 안 샀으니 0원입니다.", "준비");
+  for (let i = 0; i < N; i++) {
+    const d = data[i];
+    k = i; itemStr = `{ name: "${d.name}", price: ${d.price}, amount: ${d.amount} }`; sub = null;
+    const first = i === 0, second = i === 1;
+    push([6], "take",
+      first ? `반복문이 시작됩니다! 배열 data의 0번 칸을 꺼내 item에 넣습니다. 첫 상품은 ${d.name}입니다.`
+      : second ? `반복문이 위로 되돌아왔습니다. 이번에는 1번 칸을 꺼내 item에 넣습니다. 이번 상품은 ${d.name}입니다.`
+      : `${i + 1}번째 칸을 꺼냅니다. 상품은 ${d.name}입니다.`, "꺼내기");
+    sub = d.price * d.amount;
+    push([7], "mul",
+      first ? `가격 × 개수를 계산합니다. ${fmt(d.price)}원짜리 ${d.name} ${d.amount}개이므로 ${fmt(d.price)} × ${d.amount} = ${fmt(sub)}원입니다.`
+      : `${d.name}: ${fmt(d.price)} × ${d.amount} = ${fmt(sub)}원`, "곱하기");
+    const before = sum; sum += sub; added = i + 1;
+    push([7], "add",
+      first ? `계산한 ${fmt(sub)}원을 sum에 더합니다. 0 + ${fmt(sub)} = ${fmt(sum)}. 장바구니에도 ${d.name}이 담깁니다.`
+      : second ? `sum에 더합니다. ${fmt(before)} + ${fmt(sub)} = ${fmt(sum)}. 이렇게 같은 일을 칸마다 되풀이하는 것이 반복문입니다.`
+      : `sum: ${fmt(before)} + ${fmt(sub)} = ${fmt(sum)}`, "더하기");
+  }
+  k = -1; itemStr = null; sub = null;
+  push([8], "end", `50칸을 모두 꺼냈으므로 반복문이 끝납니다. 이제 중괄호 { } 밖으로 나갑니다.`, "끝");
+  out.push(String(sum));
+  push([9], "end", `console.log(sum)이 최종 합계 ${sum}을 출력합니다. 총 구매가격은 ${fmt(sum)}원입니다.`, "출력");
+  return t;
+}
+
+// ---------- 화면 ----------
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const trace = buildTrace();
+let pos = 0, timer = null, raf = 0, shownTot = 0, lastAdded = 0;
+
+$("code").innerHTML = lines.map((l, i) => {
+  const [c, cm] = l.split("   //");
+  const c2 = l.trim().startsWith("//") ? "" : c;
+  return l.trim().startsWith("//")
+    ? `<div class="ln"><span class="no">${i + 1}</span><span class="cm">${esc(l)}</span></div>`
+    : `<div class="ln"><span class="no">${i + 1}</span>${esc(c2)}${cm ? `<span class="cm">   //${esc(cm)}</span>` : ""}</div>`;
+}).join("");
+$("tiles").innerHTML = data.map((_, i) => `<div class="tile" title="${i}번 칸">${i}</div>`).join("");
+$("vars").innerHTML = `
+  <div class="var big" id="v_sum"><small>sum (총합)</small><b>-</b></div>
+  <div class="var" id="v_k"><small>지금 몇 번 칸</small><b>-</b></div>
+  <div class="var" id="v_sub"><small>가격 × 개수</small><b>-</b></div>
+  <div class="var big" id="v_item"><small>item (지금 꺼낸 칸)</small><b>-</b></div>`;
+
+function setVar(id, val) {
+  const el = $("v_" + id), b = el.querySelector("b"), s = val === null || val === undefined ? "-" : String(val);
+  if (b.textContent !== s) { b.textContent = s; el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+}
+function countTo(target, instant) {
+  cancelAnimationFrame(raf);
+  const from = shownTot, t0 = performance.now(), dur = instant ? 0 : 350;
+  const f = now => {
+    const p = dur === 0 ? 1 : Math.min(1, (now - t0) / dur);
+    shownTot = Math.round(from + (target - from) * p);
+    $("tot").textContent = fmt(shownTot) + "원";
+    if (p < 1) raf = requestAnimationFrame(f);
+  };
+  raf = requestAnimationFrame(f);
+}
+
+function render(fast) {
+  const s = trace[pos];
+
+  // 오른쪽: 로직
+  $("say").innerHTML = `<small>지금 무슨 일이 일어나나요? (${s.tag})</small>${esc(s.say)}`;
+  document.querySelectorAll(".ln").forEach((el, i) => el.className = "ln" + (s.hl.includes(i) ? " on" : ""));
+  ["take","mul","add"].forEach((p, i) => $("b" + (i + 1)).className = "box" + (s.phase === p ? " on" : ""));
+  const done = s.phase === "add" || s.phase === "end" ? s.added : s.added;
+  document.querySelectorAll(".tile").forEach((el, i) => el.className = "tile" + (i === s.k ? " cur" : i < s.added ? " done" : ""));
+  $("kc").textContent = `${s.added}번째 완료 / ${N}`;
+  $("pc").textContent = Math.round(s.added / N * 100) + "%";
+  $("bar").style.width = (s.added / N * 100) + "%";
+  setVar("sum", s.sum === null ? null : fmt(s.sum));
+  setVar("k", s.k < 0 ? null : s.k);
+  setVar("sub", s.sub === null ? null : fmt(s.sub));
+  setVar("item", s.itemStr);
+  $("console").innerHTML = s.out.map(o => `<div>${esc(o)}</div>`).join("") || "&nbsp;";
+
+  // 왼쪽: 쇼핑몰
+  const shelf = $("shelf");
+  if (s.k >= 0) {
+    const d = data[s.k];
+    shelf.className = "shelf " + (s.phase === "take" ? "pick" : s.phase);
+    shelf.innerHTML = `<div class="em">${d.emoji}</div><div class="nm">${d.name}</div>
+      <div class="kv">가격 ${fmt(d.price)}원 · 개수 ${d.amount}개</div>
+      <div class="calc">${s.phase === "take" ? "&nbsp;" : `${fmt(d.price)} × ${d.amount} = ${fmt(d.price * d.amount)}원`}</div>
+      <div>${s.phase === "add" ? "✔ 장바구니에 담았어요!" : s.phase === "mul" ? "계산 중..." : "상품을 골랐어요"}</div>`;
+  } else {
+    shelf.className = "shelf";
+    shelf.innerHTML = s.phase === "end" ? `<div class="em">🧾</div><div class="nm">모든 상품을 담았어요</div>` : `<div class="em">📦</div><div class="nm">상품 50개가 줄 서 있어요</div><div class="kv">재생을 누르면 한 개씩 담습니다</div>`;
+  }
+  const list = $("list");
+  if (s.added === 0) list.innerHTML = '<div class="empty">장바구니가 비어 있어요</div>';
+  else {
+    const freshIdx = (s.phase === "add" && s.added > lastAdded && !fast) ? s.added - 1 : -1;
+    list.innerHTML = data.slice(0, s.added).map((d, i) =>
+      `<div class="row${i === freshIdx ? " fresh" : ""}"><span class="n">${i}</span><span>${d.emoji} ${d.name}</span><span class="c">${fmt(d.price)} × ${d.amount} = ${fmt(d.price * d.amount)}</span></div>`).join("");
+    list.scrollTop = list.scrollHeight;
+  }
+  if (s.added > lastAdded && !fast) { $("ico").classList.remove("bump"); void $("ico").offsetWidth; $("ico").classList.add("bump"); }
+  lastAdded = s.added;
+  $("cnt").textContent = `${s.added} / ${N}`;
+  countTo(s.sum === null ? 0 : s.sum, fast);
+
+  const end = pos >= trace.length - 1;
+  $("next").disabled = end; $("item").disabled = end; $("end").disabled = end;
+  if (end) stop();
+}
+
+function stop() { if (timer) { clearTimeout(timer); timer = null; } $("play").textContent = pos >= trace.length - 1 ? "▶ 다시 재생" : "▶ 자동 재생"; }
+function step() { if (pos < trace.length - 1) { pos++; render(false); } }
+function nextItem() {
+  const cur = trace[pos].k;
+  let p = pos;
+  while (p < trace.length - 1) { p++; const s = trace[p]; if ((s.phase === "take" && s.k !== cur) || s.phase === "end") break; }
+  pos = p; render(false);
+}
+function play() {
+  if (timer) { stop(); return; }
+  if (pos >= trace.length - 1) { pos = 0; lastAdded = 0; shownTot = 0; render(true); }
+  $("play").textContent = "⏸ 일시정지";
+  const delay = () => Math.round(1700 * Math.pow(0.74, Number($("speed").value)));
+  const tick = () => { step(); if (timer) timer = setTimeout(tick, delay()); };
+  timer = setTimeout(tick, delay());
+}
+$("play").onclick = play;
+$("next").onclick = () => { stop(); step(); };
+$("item").onclick = () => { stop(); nextItem(); };
+$("end").onclick = () => { stop(); pos = trace.length - 1; render(true); };
+$("reset").onclick = () => { stop(); pos = 0; lastAdded = 0; shownTot = 0; render(true); };
+render(true);
+</script>
+</body>
+</html>

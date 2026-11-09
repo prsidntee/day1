@@ -1,4 +1,4 @@
-TEST<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -90,6 +90,9 @@ TEST<!DOCTYPE html>
     }
     .card h3 { margin-bottom: 6px; }
     .card p { font-size: .95rem; color: #4b5563; }
+    .demo-btn { margin-bottom: 16px; padding: 10px 20px; font: inherit; font-weight: 700; color: #fff; background: #0e7c86; border: 0; border-radius: 8px; cursor: pointer; }
+    .demo-btn:hover { background: #0b666e; }
+    .demo-wrap iframe { display: block; width: 100%; height: 80vh; min-height: 560px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; }
     footer { text-align: center; padding: 24px; color: #6b7280; font-size: .9rem; }
 
     /* ---------- 모바일: 햄버거 메뉴 ---------- */
@@ -127,6 +130,7 @@ TEST<!DOCTYPE html>
           <li><a href="#food" data-page="food">음식점</a></li>
           <li><a href="#bus" data-page="bus">버스</a></li>
           <li><a href="#sights" data-page="sights">관광지</a></li>
+          <li><a href="#array" data-page="array">배열 학습</a></li>
         </ul>
       </nav>
     </div>
@@ -262,6 +266,15 @@ TEST<!DOCTYPE html>
         <div class="card"><h3>🌳 비자림·사려니숲길</h3><p>울창한 숲에서 걷기 좋은 힐링 코스입니다.</p></div>
       </div>
     </section>
+
+    <section class="page" id="array">
+      <h1>🛒 배열 학습</h1>
+      <p>장바구니에 상품 50개를 담으면서 배열과 반복문이 어떻게 동작하는지 애니메이션으로 확인해 보세요.</p>
+      <button type="button" class="demo-btn" id="demoBtn" aria-expanded="false" aria-controls="demoWrap">▶ 장바구니 애니메이션 보기</button>
+      <div class="demo-wrap" id="demoWrap" hidden>
+        <iframe id="demoFrame" title="장바구니와 반복문 애니메이션"></iframe>
+      </div>
+    </section>
   </main>
 
   <footer>© 제주 여행 안내</footer>
@@ -291,6 +304,17 @@ TEST<!DOCTYPE html>
       const open = nav.classList.toggle('open');
       burger.classList.toggle('open', open);
       burger.setAttribute('aria-expanded', open);
+    });
+
+    const demoBtn = document.getElementById('demoBtn');
+    const demoWrap = document.getElementById('demoWrap');
+    const demoFrame = document.getElementById('demoFrame');
+    demoBtn.addEventListener('click', () => {
+      const open = demoWrap.hidden;
+      demoWrap.hidden = !open;
+      if (open && !demoFrame.getAttribute('src')) demoFrame.setAttribute('src', 'shopping-loop-animation.html');
+      demoBtn.textContent = open ? '✕ 애니메이션 닫기' : '▶ 장바구니 애니메이션 보기';
+      demoBtn.setAttribute('aria-expanded', String(open));
     });
 
     window.addEventListener('hashchange', show);

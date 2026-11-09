@@ -76,6 +76,12 @@
       gap: 16px;
     }
     .sub { font-size: 1.3rem; margin: 32px 0 12px; color: #0e7c86; }
+    .table-wrap { overflow-x: auto; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0, 0, 0, .08); }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: .95rem; }
+    th { background: #e6f3f4; color: #0e7c86; white-space: nowrap; }
+    .note { margin-top: 28px; font-size: .88rem; color: #6b7280; }
+    .note a { color: #0e7c86; }
     .card {
       background: #fff;
       border-radius: 12px;
@@ -165,12 +171,61 @@
 
     <section class="page" id="bus">
       <h1>🚌 버스</h1>
-      <p>렌터카가 없어도 버스로 섬 곳곳을 다닐 수 있습니다.</p>
-      <div class="cards">
-        <div class="card"><h3>🔵 간선버스</h3><p>제주시와 서귀포시를 잇는 주요 노선으로 배차 간격이 짧습니다.</p></div>
-        <div class="card"><h3>🟢 지선버스</h3><p>마을과 관광지를 연결하는 노선으로 소요 시간이 길 수 있습니다.</p></div>
-        <div class="card"><h3>📱 이용 팁</h3><p>실시간 버스 앱으로 도착 시간을 확인하고, 교통카드를 준비하세요.</p></div>
+      <p>렌터카가 없어도 버스로 섬 곳곳을 다닐 수 있습니다. <strong>2026년 11월 기준</strong>으로 정리했습니다.</p>
+
+      <h2 class="sub">🔢 노선 번호 체계</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>구분</th><th>번호대</th><th>설명</th></tr></thead>
+          <tbody>
+            <tr><td>🚐 공항리무진</td><td>600, 601, 800, 801</td><td>제주국제공항과 서귀포 방면 연결</td></tr>
+            <tr><td>⚡ 급행</td><td>100번대</td><td>제주·서귀포 주요 거점 연결 (거리비례 요금)</td></tr>
+            <tr><td>🔵 일반간선</td><td>200번대</td><td>제주시↔서귀포시 등 거점 연결</td></tr>
+            <tr><td>🔵 제주 간선</td><td>300번대</td><td>제주시 권역 연결</td></tr>
+            <tr><td>🟢 제주 지선</td><td>400번대</td><td>제주시 권역 중심지와 외곽 연결</td></tr>
+            <tr><td>🔵 서귀포 간선</td><td>500번대</td><td>서귀포시 권역 연결</td></tr>
+            <tr><td>🟢 읍면 지선</td><td>700번대</td><td>읍·면 지역 (수요응답형 포함)</td></tr>
+            <tr><td>🎡 관광지 순환</td><td>810, 820 등</td><td>주요 관광지를 도는 순환 노선</td></tr>
+            <tr><td>🌙 심야</td><td>3000번대(제주), 5000번대(서귀포)</td><td>심야 시간대 운행</td></tr>
+          </tbody>
+        </table>
       </div>
+
+      <h2 class="sub">🧭 관광객이 자주 쓰는 노선</h2>
+      <div class="cards">
+        <div class="card"><h3>✈️ 공항 ↔ 서귀포·중문</h3><p><b>600번</b> 공항–동광–서귀포터미널<br><b>181·182번</b> 공항–제주터미널–서귀포–중문–동광–공항<br><b>800·801번</b> 제주터미널–공항–서귀포</p></div>
+        <div class="card"><h3>🌅 공항 ↔ 동쪽</h3><p><b>101번</b> 공항–함덕–김녕–세화–표선–남원<br><b>111번</b> 공항–제주터미널–대천–고성(성산)<br><b>121·122번</b> 공항–대천–성읍–표선</p></div>
+        <div class="card"><h3>🌇 공항 ↔ 서쪽</h3><p><b>102번</b> 제주터미널–공항–애월–한림–고산–대정<br><b>151번</b> 제주터미널–공항–동광(–운진항)</p></div>
+        <div class="card"><h3>🛣️ 제주시 ↔ 서귀포시</h3><p><b>201·202번</b> 두 도시를 오가는 장거리 간선 노선입니다.</p></div>
+        <div class="card"><h3>🎡 관광지 순환</h3><p><b>810번</b> 대천 기점: 거문오름, 비자림, 다랑쉬오름 등<br><b>820번</b> 동광 기점: 오설록, 환상숲, 저지오름 등</p></div>
+        <div class="card"><h3>🏝️ 우도</h3><p><b>921·922번</b> 해안도로 순환<br><b>924번</b> 마을안길 순환</p></div>
+      </div>
+
+      <h2 class="sub">🆕 2026년 새 소식</h2>
+      <div class="cards">
+        <div class="card"><h3>🆕 303번 도심급행 (6월 10일~)</h3><p>한라수목원–한라병원–제주공항–용담–동문시장–삼양–함덕. 지정된 정류소에만 정차합니다.</p></div>
+        <div class="card"><h3>🆕 337번 연삼로 직행 (6월 10일~)</h3><p>해안동–한라중학교–신제주초–연삼로–거로사거리–봉개.</p></div>
+        <div class="card"><h3>➕ 증차 노선</h3><p>혼잡 노선 282·355·356·360·411번에 버스를 추가 투입했습니다. 12월에는 111·151·182·600번 등 상시 혼잡 노선을 대상으로 3단계 증차가 예정되어 있습니다.</p></div>
+        <div class="card"><h3>🤖 903번 자율주행</h3><p>성산일출봉–섭지코지 구간을 2026년 12월 31일까지 시범 운행합니다. 화~토 운행, 정원 8명입니다.</p></div>
+      </div>
+
+      <h2 class="sub">💳 요금</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>구분</th><th>일반</th><th>청소년</th><th>어린이</th></tr></thead>
+          <tbody>
+            <tr><td>급행 기본요금</td><td>2,000원</td><td>1,600원</td><td>1,000원</td></tr>
+            <tr><td>간선·지선·순환·심야</td><td>1,150원</td><td>850원</td><td>350원</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="cards">
+        <div class="card"><h3>📱 이용 팁</h3><p>전 노선 <b>현금 없는 버스</b>입니다. 교통카드나 QR 결제를 준비하세요. 급행은 <b>하차할 때도 카드를 태그</b>해야 하며, 태그하지 않으면 최대요금이 부과됩니다.</p></div>
+        <div class="card"><h3>🔄 환승</h3><p>하차 태그 후 40분 이내 환승하면 할인됩니다.</p></div>
+      </div>
+
+      <p class="note">※ 노선과 요금은 수시로 바뀔 수 있습니다. 출발 전 <a href="http://bus.jeju.go.kr" target="_blank" rel="noopener">제주 버스정보시스템(bus.jeju.go.kr)</a>에서 최신 정보와 실시간 도착 시간을 확인하세요.<br>
+      자료: 제주투데이(2026.6.9) 보도, 나무위키 「제주특별자치도 시내버스」(2026.11.9 확인)</p>
     </section>
 
     <section class="page" id="sights">

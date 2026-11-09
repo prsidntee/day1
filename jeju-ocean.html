@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>제주 바다와 태양 - 3D</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b1a2b;overflow:hidden;font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;color:#fff}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  #title{position:absolute;left:12px;top:10px;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none}
+  #title b{font-size:18px}
+  #title div{font-size:12px;opacity:.85;margin-top:2px}
+  #note{position:absolute;right:12px;top:10px;max-width:260px;font-size:11px;opacity:.75;text-align:right;text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none}
+  #hud{position:absolute;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(transparent,rgba(0,0,0,.65));display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+  #hud button{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:7px 12px;font-size:14px;cursor:pointer}
+  #hud button.on{background:#2f80ed;border-color:#2f80ed}
+  #hud label{font-size:12px;display:flex;align-items:center;gap:6px}
+  #hud input[type=range]{width:150px}
+  #clock{font-variant-numeric:tabular-nums;font-size:15px;min-width:170px}
+  #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:20px;background:#0b1a2b}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title"><b>제주 바다와 태양</b><div>2026-11-09 · 위도 33.4°N · 파도 + 태양 이동</div></div>
+<div id="note">지형은 실제 DEM이 아닌 축소·과장한 가상 제주섬 모형입니다.</div>
+<div id="hud">
+  <button id="play">⏸ 정지</button>
+  <span id="clock">--:--</span>
+  <label>시간 <input id="hour" type="range" min="6.5" max="17.5" step="0.01" value="9"></label>
+  <label>파도 <input id="amp" type="range" min="0.2" max="2.5" step="0.05" value="1"></label>
+  <button id="camSun" class="on">태양 따라보기</button>
+  <button id="camOver">섬 전경</button>
+</div>
+<div id="err">이 브라우저에서는 WebGL을 사용할 수 없습니다.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  if(typeof THREE==='undefined'){document.getElementById('err').style.display='flex';return;}
+  var canvas=document.getElementById('c');
+  var renderer;
+  try{renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});}
+  catch(e){document.getElementById('err').style.display='flex';return;}
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=0.85;
+
+  var scene=new THREE.Scene();
+  var camera=new THREE.PerspectiveCamera(70,1,1,70000);
+
+  var D2R=Math.PI/180;
+  var LAT=33.4, DOY=313; // 2026-11-09
+
+  /* ---------- 태양 위치 ---------- */
+  function sunPos(hour){
+    var dec=23.44*Math.sin(2*Math.PI*(284+DOY)/365)*D2R, lat=LAT*D2R, H=(hour-12)*15*D2R;
+    var sinEl=Math.sin(lat)*Math.sin(dec)+Math.cos(lat)*Math.cos(dec)*Math.cos(H);
+    var el=Math.asin(Math.max(-1,Math.min(1,sinEl)));
+    var cosAz=(Math.sin(dec)-sinEl*Math.sin(lat))/(Math.cos(el)*Math.cos(lat));
+    var az=Math.acos(Math.max(-1,Math.min(1,cosAz)));
+    if(H>0)az=2*Math.PI-az;
+    return {el:el,az:az};
+  }
+  // 북=-z, 동=+x, 남=+z
+  function dirFrom(az,el){return new THREE.Vector3(Math.sin(az)*Math.cos(el),Math.sin(el),-Math.cos(az)*Math.cos(el));}
+
+  /* ---------- 가상 제주 지형 ---------- */
+  function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var A=9000,B=5000;
+  var oreums=[];(function(){var r=rng(7),n=0;while(n<110){var x=(r()*2-1)*A*0.9,z=(r()*2-1)*B*0.9;var e=Math.hypot(x/A,z/B);if(e>0.85)continue;if(Math.hypot(x+300,z)<1700)continue;oreums.push([x,z,150+r()*220,35+r()*90]);n++;}})();
+  var islets=[[9700,-3300,380,170],[-9900,-2200,260,150],[-4000,7800,230,120]];
+  function sstep(a,b,x){var t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);}
+  function height(x,z){
+    var th=Math.atan2(z/B,x/A);
+    var e=Math.hypot(x/A,z/B)*(1+0.06*Math.sin(3*th+1)+0.04*Math.sin(5*th+2)+0.03*Math.sin(9*th));
+    var h;
+    if(e<1){var land=1-e;h=-2+80*Math.pow(land,0.7)+330*Math.pow(land,2);}
+    else h=-2-70*(1-Math.exp(-(e-1)*8));
+    var hx=(x+300)/1800,hz=z/1800,hd=Math.hypot(hx,hz);
+    h+=1150*Math.exp(-Math.pow(hd,1.6)*2.2)*sstep(1.0,0.6,e)*1.0;
+    h-=70*Math.exp(-hd*hd*90);
+    for(var i=0;i<oreums.length;i++){var o=oreums[i],d2=((x-o[0])*(x-o[0])+(z-o[1])*(z-o[1]))/(o[2]*o[2]);if(d2<9)h+=o[3]*Math.exp(-d2);}
+    for(var j=0;j<islets.length;j++){var s=islets[j],q=((x-s[0])*(x-s[0])+(z-s[1])*(z-s[1]))/(s[2]*s[2]);if(q<12)h+=s[3]*Math.exp(-q);}
+    return h;
+  }
+  var X0=-12000,X1=12000,Z0=-6750,Z1=9250,NX=480,NZ=320;
+  var hs=new Float32Array((NX+1)*(NZ+1));
+  var pos=new Float32Array((NX+1)*(NZ+1)*3),col=new Float32Array((NX+1)*(NZ+1)*3);
+  var depthTex=new Uint8Array((NX+1)*(NZ+1)*4);
+  (function(){
+    var hr=rng(3);
+    for(var j=0;j<=NZ;j++)for(var i=0;i<=NX;i++){
+      var k=j*(NX+1)+i,x=X0+(X1-X0)*i/NX,z=Z0+(Z1-Z0)*j/NZ,h=height(x,z);
+      hs[k]=h;pos[k*3]=x;pos[k*3+1]=h;pos[k*3+2]=z;
+      var v=Math.max(0,Math.min(1,(h+60)/120));
+      depthTex[k*4]=v*255;depthTex[k*4+1]=0;depthTex[k*4+2]=0;depthTex[k*4+3]=255;
+      var n=0.92+0.16*hr(),r,g,b;
+      if(h<0){var t=Math.max(0,Math.min(1,-h/40));r=0.76*(1-t)+0.18*t;g=0.70*(1-t)+0.34*t;b=0.50*(1-t)+0.40*t;}
+      else if(h<6){r=0.78;g=0.72;b=0.52;}
+      else if(h<450){var t2=h/450;r=0.22+0.16*t2;g=0.42-0.03*t2;b=0.18+0.03*t2;}
+      else if(h<1000){var t3=(h-450)/550;r=0.38+0.08*t3;g=0.39-0.03*t3;b=0.21+0.10*t3;}
+      else{var t4=Math.min(1,(h-1000)/500);r=0.46+0.28*t4;g=0.36+0.34*t4;b=0.31+0.38*t4;}
+      col[k*3]=r*n;col[k*3+1]=g*n;col[k*3+2]=b*n;
+    }
+  })();
+  var idx=new Uint32Array(NX*NZ*6),p=0;
+  for(var j=0;j<NZ;j++)for(var i=0;i<NX;i++){var a=j*(NX+1)+i,b=a+1,c=a+NX+1,d=c+1;idx[p++]=a;idx[p++]=c;idx[p++]=b;idx[p++]=b;idx[p++]=c;idx[p++]=d;}
+  var tg=new THREE.BufferGeometry();
+  tg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  tg.setAttribute('color',new THREE.BufferAttribute(col,3));
+  tg.setIndex(new THREE.BufferAttribute(idx,1));
+  tg.computeVertexNormals();
+  var terrain=new THREE.Mesh(tg,new THREE.MeshLambertMaterial({vertexColors:true}));
+  scene.add(terrain);
+  var dtex=new THREE.DataTexture(depthTex,NX+1,NZ+1,THREE.RGBAFormat,THREE.UnsignedByteType);
+  dtex.minFilter=THREE.LinearFilter;dtex.magFilter=THREE.LinearFilter;dtex.needsUpdate=true;
+
+  var hemi=new THREE.HemisphereLight(0xbcd6ff,0x4a4a3a,0.7);scene.add(hemi);
+  var sunLight=new THREE.DirectionalLight(0xffffff,1.5);scene.add(sunLight);
+
+  /* ---------- 하늘 ---------- */
+  var skyU={
+    uSunDir:{value:new THREE.Vector3(0,1,0)},uSunCol:{value:new THREE.Color(1,1,1)},
+    uHor:{value:new THREE.Color()},uZen:{value:new THREE.Color()}
+  };
+  var skyChunk=[
+    'uniform vec3 uSunDir;uniform vec3 uSunCol;uniform vec3 uHor;uniform vec3 uZen;',
+    'vec3 skyBase(vec3 d){',
+    ' float h=clamp(d.y,0.0,1.0);',
+    ' vec3 c=mix(uHor,uZen,pow(h,0.5));',
+    ' float mu=max(dot(d,uSunDir),0.0);',
+    ' c+=uSunCol*(0.30*pow(mu,5.0)+0.8*pow(mu,50.0));',
+    ' return c;}'
+  ].join('\n');
+  var skyMat=new THREE.ShaderMaterial({
+    side:THREE.BackSide,depthWrite:false,fog:false,uniforms:skyU,
+    vertexShader:'varying vec3 vD;void main(){vD=position;vec4 p=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*p;gl_Position.z=gl_Position.w*0.99999;}',
+    fragmentShader:skyChunk+'\nvarying vec3 vD;void main(){vec3 d=normalize(vD);vec3 c=skyBase(d);float mu=max(dot(d,uSunDir),0.0);c+=uSunCol*30.0*smoothstep(0.9996,0.9999,mu);if(d.y<0.0)c=mix(c,uHor*0.8,smoothstep(0.0,-0.15,d.y));gl_FragColor=vec4(c,1.0);\n#include <tonemapping_fragment>\n}'
+  });
+  var sky=new THREE.Mesh(new THREE.SphereGeometry(30000,32,16),skyMat);sky.frustumCulled=false;scene.add(sky);
+
+  /* ---------- 바다 ---------- */
+  var NG=400,R=22000;
+  var og=new THREE.BufferGeometry(),opos=new Float32Array((NG+1)*(NG+1)*3),q=0;
+  for(var j=0;j<=NG;j++)for(var i=0;i<=NG;i++){
+    var u=(i/NG)*2-1,v=(j/NG)*2-1;
+    opos[q++]=Math.sign(u)*Math.pow(Math.abs(u),3)*R;opos[q++]=0;opos[q++]=Math.sign(v)*Math.pow(Math.abs(v),3)*R;
+  }
+  var oidx=new Uint32Array(NG*NG*6);q=0;
+  for(var j2=0;j2<NG;j2++)for(var i2=0;i2<NG;i2++){var a2=j2*(NG+1)+i2,b2=a2+1,c2=a2+NG+1,d2=c2+1;oidx[q++]=a2;oidx[q++]=c2;oidx[q++]=b2;oidx[q++]=b2;oidx[q++]=c2;oidx[q++]=d2;}
+  og.setAttribute('position',new THREE.BufferAttribute(opos,3));
+  og.setIndex(new THREE.BufferAttribute(oidx,1));
+  var heading=70*D2R;
+  function wv(off,L,Am,Q){var a=heading+off*D2R;return new THREE.Vector4(Math.cos(a),Math.sin(a),L,Am*1.0+0*Q);}
+  var ou=Object.assign({
+    uTime:{value:0},uAmp:{value:1},uDepth:{value:dtex},
+    uW:{value:[new THREE.Vector4(Math.cos(heading),Math.sin(heading),260,2.4),
+               new THREE.Vector4(Math.cos(heading+0.5),Math.sin(heading+0.5),170,1.5),
+               new THREE.Vector4(Math.cos(heading-0.6),Math.sin(heading-0.6),110,0.9),
+               new THREE.Vector4(Math.cos(heading+1.1),Math.sin(heading+1.1),72,0.5)]}
+  },skyU);
+  var oceanMat=new THREE.ShaderMaterial({
+    uniforms:ou,
+    vertexShader:[
+      'uniform float uTime;uniform float uAmp;uniform vec4 uW[4];',
+      'varying vec3 vP;varying vec3 vN;',
+      'void main(){',
+      ' vec2 p0=position.xz+cameraPosition.xz;',
+      ' vec3 P=vec3(p0.x,0.0,p0.y);vec3 N=vec3(0.0,1.0,0.0);',
+      ' for(int i=0;i<4;i++){',
+      '  vec2 d=uW[i].xy;float L=uW[i].z;float A=uW[i].w*uAmp;',
+      '  float k=6.2831853/L;float w=sqrt(9.8*k)*0.9;float ph=k*dot(d,p0)-w*uTime;',
+      '  float Q=0.75/(k*A*4.0+0.001);Q=min(Q,0.9);',
+      '  float c=cos(ph),s=sin(ph);',
+      '  P.xz+=Q*A*d*c;P.y+=A*s;',
+      '  N.xz-=d*k*A*c;N.y-=Q*k*A*s;',
+      ' }',
+      ' vP=P;vN=normalize(N);',
+      ' gl_Position=projectionMatrix*viewMatrix*vec4(P,1.0);',
+      '}'
+    ].join('\n'),
+    fragmentShader:skyChunk+'\n'+[
+      'uniform float uTime;uniform sampler2D uDepth;',
+      'varying vec3 vP;varying vec3 vN;',
+      'void main(){',
+      ' vec3 V=cameraPosition-vP;float dist=length(V);V/=dist;',
+      ' vec3 N=normalize(vN);',
+      ' float far=exp(-dist/500.0);',
+      ' N.xz+=far*0.05*vec2(sin(vP.x*0.35+uTime*1.3)+sin(vP.z*0.5-uTime*1.1)+sin((vP.x+vP.z)*0.7+uTime*1.7),sin(vP.z*0.4+uTime*1.2)+sin(vP.x*0.6+uTime*0.9)+sin((vP.x-vP.z)*0.65-uTime*1.5));',
+      ' N=normalize(N);',
+      ' vec3 Rr=reflect(-V,N);Rr.y=abs(Rr.y);',
+      ' float nv=max(dot(N,V),0.0);',
+      ' float F=0.02+0.98*pow(1.0-nv,5.0);',
+      ' vec2 uv=vec2((vP.x+12000.0)/24000.0,(vP.z+6750.0)/16000.0);',
+      ' float dv=0.0;if(uv.x>0.0&&uv.x<1.0&&uv.y>0.0&&uv.y<1.0)dv=texture2D(uDepth,uv).r;',
+      ' float shallow=smoothstep(0.12,0.5,dv);',
+      ' vec3 deep=vec3(0.01,0.09,0.15)*(0.35+0.65*clamp(uSunDir.y*2.0,0.0,1.0))+uHor*0.02;',
+      ' vec3 turq=vec3(0.05,0.42,0.45)*(0.3+0.7*clamp(uSunDir.y*2.0,0.0,1.0));',
+      ' vec3 water=mix(deep,turq,shallow);',
+      ' vec3 refl=skyBase(Rr);',
+      ' vec3 c=mix(water,refl,F);',
+      ' float sp=max(dot(Rr,uSunDir),0.0);',
+      ' c+=uSunCol*(pow(sp,700.0)*60.0+pow(sp,90.0)*2.0+pow(sp,14.0)*0.25);',
+      ' float edge=smoothstep(0.30,0.5,dv);float ripple=0.5+0.5*sin(dv*180.0-uTime*2.0+sin(vP.x*0.05)*3.0);',
+      ' float foam=edge*(1.0-smoothstep(0.46,0.5,dv))*ripple*0.9;',
+      ' c=mix(c,vec3(0.95,0.97,1.0)*(0.3+0.7*clamp(uSunDir.y*2.0,0.0,1.0)),clamp(foam,0.0,1.0));',
+      ' vec3 fogc=skyBase(normalize(vec3(-V.x,0.03,-V.z)));',
+      ' c=mix(c,fogc,1.0-exp(-dist/16000.0));',
+      ' gl_FragColor=vec4(c,1.0);',
+      '#include <tonemapping_fragment>',
+      '}'
+    ].join('\n')
+  });
+  var ocean=new THREE.Mesh(og,oceanMat);ocean.frustumCulled=false;scene.add(ocean);
+  scene.fog=new THREE.Fog(0xaaccee,6000,26000);
+
+  /* ---------- 카메라 / UI ---------- */
+  var mode='sun',hour=9,playing=true,HSPEED=0.35,simT=0;
+  var orbit={az:0,el:22*D2R,r:13000};
+  var tgt=new THREE.Vector3(0,150,1250);
+  var $=function(id){return document.getElementById(id);};
+  var sl=$('hour');sl.value=hour;
+  $('play').onclick=function(){playing=!playing;this.textContent=playing?'⏸ 정지':'▶ 재생';};
+  sl.oninput=function(){hour=parseFloat(this.value);};
+  $('amp').oninput=function(){ou.uAmp.value=parseFloat(this.value);};
+  function setMode(m){mode=m;$('camSun').classList.toggle('on',m==='sun');$('camOver').classList.toggle('on',m==='over');}
+  $('camSun').onclick=function(){setMode('sun');};
+  $('camOver').onclick=function(){setMode('over');};
+  var drag=null;
+  canvas.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener('pointerup',function(){drag=null;});
+  canvas.addEventListener('pointermove',function(e){
+    if(!drag||mode!=='over')return;
+    orbit.az-=(e.clientX-drag.x)*0.006;orbit.el=Math.max(4*D2R,Math.min(80*D2R,orbit.el+(e.clientY-drag.y)*0.005));
+    drag={x:e.clientX,y:e.clientY};
+  });
+  canvas.addEventListener('wheel',function(e){if(mode!=='over')return;e.preventDefault();orbit.r=Math.max(2500,Math.min(30000,orbit.r*(1+e.deltaY*0.001)));},{passive:false});
+
+  function resize(){
+    var w=window.innerWidth,h=window.innerHeight;
+    renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize',resize);resize();
+
+  var hor0=new THREE.Color(1.0,0.5,0.25),hor1=new THREE.Color(0.72,0.85,0.97);
+  var zen0=new THREE.Color(0.03,0.05,0.14),zen1=new THREE.Color(0.14,0.38,0.80);
+  var sc0=new THREE.Color(1.0,0.55,0.25),sc1=new THREE.Color(1.0,0.95,0.85);
+  function updateSky(sp){
+    var elD=sp.el/D2R;
+    var t=sstep(0,28,elD),vis=sstep(-5,3,elD),night=sstep(-8,2,elD);
+    skyU.uSunDir.value.copy(dirFrom(sp.az,sp.el));
+    skyU.uSunCol.value.copy(sc0).lerp(sc1,t).multiplyScalar(vis);
+    skyU.uHor.value.copy(hor0).lerp(hor1,t).multiplyScalar(0.25+0.75*night);
+    skyU.uZen.value.copy(zen0).lerp(zen1,t).multiplyScalar(0.3+0.7*night);
+    sunLight.position.copy(skyU.uSunDir.value).multiplyScalar(1000);
+    sunLight.color.copy(skyU.uSunCol.value);
+    sunLight.intensity=2.2*vis;
+    hemi.intensity=0.15+0.65*night;
+    hemi.color.copy(skyU.uZen.value).lerp(new THREE.Color(1,1,1),0.5);
+    scene.fog.color.copy(skyU.uHor.value);
+  }
+  function fmt(h){var hh=Math.floor(h),mm=Math.floor((h-hh)*60);return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm;}
+  function updateCam(sp){
+    if(mode==='sun'){
+      camera.position.set(0,16,6500);
+      var el=sp.el/D2R,aim;
+      aim=Math.max(-2,Math.min(12,el*0.5));
+      var d=dirFrom(sp.az,aim*D2R);
+      camera.lookAt(camera.position.clone().add(d.multiplyScalar(1000)));
+    }else{
+      camera.position.set(tgt.x+Math.sin(orbit.az)*Math.cos(orbit.el)*orbit.r,tgt.y+Math.sin(orbit.el)*orbit.r,tgt.z+Math.cos(orbit.az)*Math.cos(orbit.el)*orbit.r);
+      camera.lookAt(tgt);
+    }
+  }
+  var last=performance.now(),frames=0;
+  function loop(now){
+    var dt=Math.min(0.1,(now-last)/1000);last=now;
+    simT+=dt;
+    if(playing){hour+=dt*HSPEED;if(hour>17.5)hour=6.5;sl.value=hour;}
+    var sp=sunPos(hour);updateSky(sp);updateCam(sp);
+    ou.uTime.value=simT;
+    sky.position.copy(camera.position);
+    $('clock').textContent=fmt(hour)+' · 고도 '+Math.round(sp.el/D2R)+'° · 방위 '+Math.round(sp.az/D2R)+'°';
+    renderer.render(scene,camera);
+    frames++;window.__frames=frames;
+    requestAnimationFrame(loop);
+  }
+  window.__setHour=function(h){hour=h;playing=false;$('play').textContent='▶ 재생';sl.value=h;};
+  window.__setMode=setMode;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

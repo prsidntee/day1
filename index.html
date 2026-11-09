@@ -120,7 +120,7 @@
         overflow: hidden;
         transition: max-height .3s ease;
       }
-      nav.open { max-height: 540px; }
+      nav.open { max-height: 600px; }
       nav ul { flex-direction: column; padding: 8px 16px 16px; }
       nav a { padding: 12px 16px; }
     }
@@ -145,6 +145,7 @@
           <li><a href="#array" data-page="array">배열 학습</a></li>
           <li><a href="#images" data-page="images">이미지 가져오기</a></li>
           <li><a href="#ocean" data-page="ocean">3D 바다</a></li>
+          <li><a href="#game" data-page="game">트랙 게임</a></li>
         </ul>
       </nav>
     </div>
@@ -299,6 +300,15 @@
       </div>
     </section>
 
+    <section class="page" id="game">
+      <h1>🏃 고양스타디움 트랙 달리기</h1>
+      <p>밤의 고양스타디움에서 400m 허들 레이스! 방향키를 번갈아 눌러 달리고, 스페이스로 허들을 넘어 1등으로 들어오세요.</p>
+      <button type="button" class="demo-btn" id="gameBtn" aria-expanded="false" aria-controls="gameWrap">▶ 게임 시작하기</button>
+      <div class="demo-wrap" id="gameWrap" hidden>
+        <iframe id="gameFrame" title="고양스타디움 트랙 달리기" allow="fullscreen"></iframe>
+      </div>
+    </section>
+
     <section class="page" id="images">
       <h1>🖼️ 이미지 가져오기</h1>
       <p>Pixabay에서 검색어에 맞는 이미지를 불러와 화면에 보여주고, 이미지 주소(URL)를 복사할 수 있습니다.</p>
@@ -351,6 +361,17 @@
       if (open && !oceanFrame.getAttribute('src')) oceanFrame.setAttribute('src', 'jeju-ocean.html');
       oceanBtn.textContent = open ? '✕ 3D 바다 닫기' : '▶ 3D 바다 보기';
       oceanBtn.setAttribute('aria-expanded', String(open));
+    });
+
+    const gameBtn = document.getElementById('gameBtn');
+    const gameWrap = document.getElementById('gameWrap');
+    const gameFrame = document.getElementById('gameFrame');
+    gameBtn.addEventListener('click', () => {
+      const open = gameWrap.hidden;
+      gameWrap.hidden = !open;
+      if (open && !gameFrame.getAttribute('src')) gameFrame.setAttribute('src', 'goyang-track-game.html');
+      gameBtn.textContent = open ? '✕ 게임 닫기' : '▶ 게임 시작하기';
+      gameBtn.setAttribute('aria-expanded', String(open));
     });
 
     const demoBtn = document.getElementById('demoBtn');
